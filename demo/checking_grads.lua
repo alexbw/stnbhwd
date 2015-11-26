@@ -32,9 +32,15 @@ bhwdImages = bhwdImages:transpose(3,4)
 -- NOTE: we could probably optimize directly on the grid itself, as opposed to the affine transformation.
 fns = grad.functionalize('stn')
 matrixGenerator = fns.AffineTransformMatrixGenerator(true,true,true) -- rotation, scale, translation
-print(imgs:size())
 gridGenerator = fns.AffineGridGeneratorBHWD(imgs:size(3),imgs:size(4))
 bilinearSampler = fns.BilinearSamplerBHWD()
+
+function f(inputs, bhwdImages, batchSize)
+   M = matrixGenerator(inputs.transformParams)
+   grids = gridGenerator(M)
+   resampledImage = bilinearSampler({bhwdImages, grids})
+   return torch.sum(resampledImage)
+end
 
 -- Generate the transform matrix
 rotation = math.pi/4
@@ -43,17 +49,11 @@ translation = {0,0}
 transformParams = torch.Tensor{rotation,scale,translation[1],translation[2]}
 transformParams = torch.view(transformParams,1,4)
 transformParams = torch.expand(transformParams,batchSize,4)
-transformMatrix = matrixGenerator(transformParams)
 
--- Generate the grid
-grid = gridGenerator(transformMatrix)
+g = grad(f)
+print(f({transformParams=transformParams}, bhwdImages, batchSize))
+print(g({transformParams=transformParams}, bhwdImages, batchSize))
 
--- Generate the resampled image
-resampledImage = bilinearSampler({bhwdImages,grid})
-
--- Display some stuff
-local w1,w2,w3
-showImage = resampledImage:select(4,1)
-w1=image.display({image=showImage, nrow=16, legend='Resampled', win=w1})
-w2=image.display({image=imgs, nrow=16, legend='Original', win=w2})
+-- -- Generate the resampled image
+-- resampledImage = bilinearSampler({bhwdImages,grid})
 
