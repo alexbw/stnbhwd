@@ -41,7 +41,14 @@ function distortData32(foo)
    return res
 end
 
-function createDatasetsDistorted()
+function createDatasetsDistorted(batch, normalize, distort)
+   local batch = batch or false
+   if normalize ~= false then
+      local normalize = normalize or true
+   end
+   if distort ~= false then
+      local distort = distort or true
+   end
    local testFileName = 'mnist.t7/test_32x32.t7'
    local trainFileName = 'mnist.t7/train_32x32.t7'
    local train = torch.load(trainFileName, 'ascii')
@@ -51,38 +58,48 @@ function createDatasetsDistorted()
    test.data = test.data:float()
    test.labels = test.labels:float()
    
-   -- distortion   
-   train.data = distortData32(train.data)
-   test.data = distortData32(test.data)
+   -- distortion 
+   if distort then  
+      train.data = distortData32(train.data)
+      test.data = distortData32(test.data)
+   end
 
-   local mean = train.data:mean()
-   local std = train.data:std()
-   train.data:add(-mean):div(std)
-   test.data:add(-mean):div(std)
+   -- normalization
+   if normalize then
+      local mean = train.data:mean()
+      local std = train.data:std()
+      train.data:add(-mean):div(std)
+      test.data:add(-mean):div(std)
+   end
    
    local batchSize = 256
    
-   local datasetTrain = {
-      getBatch = function(self, idx)
-         local data = train.data:narrow(1, (idx - 1) * batchSize + 1, batchSize)
-         local labels = train.labels:narrow(1, (idx - 1) * batchSize + 1, batchSize)
-         return data, labels, batchSize
-      end,
-      getNumBatches = function()
-         return torch.floor(60000 / batchSize)
-      end
-   }
-   
-   local datasetVal = {
-      getBatch = function(self, idx)
-         local data = test.data:narrow(1, (idx - 1) * batchSize + 1, batchSize)
-         local labels = test.labels:narrow(1, (idx - 1) * batchSize + 1, batchSize)
-         return data, labels, batchSize
-      end,
-      getNumBatches = function()
-         return torch.floor(10000 / batchSize)
-      end
-   }
-   
-   return datasetTrain, datasetVal
+   if batch then
+      local datasetTrain = {
+         getBatch = function(self, idx)
+            local data = train.data:narrow(1, (idx - 1) * batchSize + 1, batchSize)
+            local labels = train.labels:narrow(1, (idx - 1) * batchSize + 1, batchSize)
+            return data, labels, batchSize
+         end,
+         getNumBatches = function()
+            return torch.floor(60000 / batchSize)
+         end
+      }
+      
+      local datasetVal = {
+         getBatch = function(self, idx)
+            local data = test.data:narrow(1, (idx - 1) * batchSize + 1, batchSize)
+            local labels = test.labels:narrow(1, (idx - 1) * batchSize + 1, batchSize)
+            return data, labels, batchSize
+         end,
+         getNumBatches = function()
+            return torch.floor(10000 / batchSize)
+         end
+      }
+      return datasetTrain, datasetVal
+   else
+      return train, test
+   end
 end
+
+return createDatasetsDistorted
