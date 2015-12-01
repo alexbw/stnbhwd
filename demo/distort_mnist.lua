@@ -41,7 +41,7 @@ function distortData32(foo)
    return res
 end
 
-function createDatasetsDistorted(batch, normalize, distort)
+function createDatasetsDistorted(batch, normalize, distort, batchSize)
    local batch = batch or false
    if normalize ~= false then
       local normalize = normalize or true
@@ -49,8 +49,11 @@ function createDatasetsDistorted(batch, normalize, distort)
    if distort ~= false then
       local distort = distort or true
    end
+   local batchSize = batchSize or 256
+
    local testFileName = 'mnist.t7/test_32x32.t7'
    local trainFileName = 'mnist.t7/train_32x32.t7'
+
    local train = torch.load(trainFileName, 'ascii')
    local test = torch.load(testFileName, 'ascii')
    train.data = train.data:float()
@@ -72,7 +75,6 @@ function createDatasetsDistorted(batch, normalize, distort)
       test.data:add(-mean):div(std)
    end
    
-   local batchSize = 256
    
    if batch then
       local datasetTrain = {
@@ -83,7 +85,9 @@ function createDatasetsDistorted(batch, normalize, distort)
          end,
          getNumBatches = function()
             return torch.floor(60000 / batchSize)
-         end
+         end,
+         data = train.data,
+         labels = train.labels,
       }
       
       local datasetVal = {
@@ -94,7 +98,9 @@ function createDatasetsDistorted(batch, normalize, distort)
          end,
          getNumBatches = function()
             return torch.floor(10000 / batchSize)
-         end
+         end,
+         data = test.data,
+         labels = test.labels
       }
       return datasetTrain, datasetVal
    else

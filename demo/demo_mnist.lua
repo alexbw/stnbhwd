@@ -10,8 +10,7 @@ paths.dofile('Optim.lua')
 use_stn = true
 
 -- distorted mnist dataset
-paths.dofile('distort_mnist.lua')
-datasetTrain, datasetVal = createDatasetsDistorted()
+datasetTrain, datasetVal = paths.dofile("./distort_mnist.lua")(true, true, true)
 
 -- model
 model = nn.Sequential()
