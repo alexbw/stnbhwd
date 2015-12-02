@@ -78,7 +78,7 @@ nnetLocParamsLin[#nnetLocParamsLin].W:fill(0)
 -- Define our loss function
 ---------------------------------
 local function f(inputs, bhwdImages, labels)
-   -- Reshape for convnet
+   -- Reshape the image for the convnet
    local input = torch.view(bhwdImages, 
                      batchSize, 1, imageHeight, imageWidth)
 
@@ -98,7 +98,7 @@ local function f(inputs, bhwdImages, labels)
    -- Run the classifier on those input images
    local warpedInput = torch.view(resampledImages,
                      batchSize, 
-                     imageHeight*imageWidth)
+                     gridHeight*gridWidth)
 
    -- Predict image class on warped image
    local out = nnet(inputs.nnetParams, warpedInput)
