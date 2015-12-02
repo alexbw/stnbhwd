@@ -20,11 +20,13 @@ local confusionMatrix = optim.ConfusionMatrix({0,1,2,3,4,5,6,7,8,9})
 -- Get the STN functions
 ---------------------------------
 local fns = grad.functionalize('stn')
-gridHeight = imageHeight/2
-gridWidth = imageWidth/2
-local gridGenerator = fns.AffineGridGeneratorBHWD(imageHeight/2, imageWidth/2) -- grid is same size as image
+local gridHeight = imageHeight
+local gridWidth = imageWidth
+local matrixGenerator = fns.AffineTransformMatrixGenerator(true, true, true) -- rotation, scale, translation
+local gridGenerator = fns.AffineGridGeneratorBHWD(gridHeight, gridWidth) -- grid is same size as image
 local bilinearSampler = fns.BilinearSamplerBHWD()
-
+-- local pooling = grad.functionalize('cudnn').SpatialMaxPooling(2,2,2,2)
+-- print(pooling)
 
 -- Set up our models
 ---------------------------------
@@ -33,9 +35,9 @@ local nnetLocConv, nnetLocParamsConv = grad.model.SpatialNetwork({
    -- number of input features (maps):
    inputFeatures = 1, -- grayscale input
    hiddenFeatures = {20,20},
-   poolings = {2,2},
-   activations = 'Sigmoid',
-   kernelSize = 5,
+   poolings = {4,4},
+   activations = 'ReLU',
+   kernelSize = 3,
    -- dropoutProbs = {.1, .1},
 })
 x,y,n = train:getBatch(1)
@@ -44,7 +46,7 @@ nOut = torch.numel(out)/batchSize
 
 local nnetLocLin, nnetLocParamsLin = grad.model.NeuralNetwork({
    inputFeatures = nOut,
-   hiddenFeatures = {20,6},
+   hiddenFeatures = {20,4},
    classifier = true,
 })
 
@@ -56,23 +58,25 @@ local nnet, nnetParams = grad.model.NeuralNetwork({
    classifier = true,
 })
 
-print(nnetLocParamsConv)
-
 -- Initialize the weights (really need a utility function for this!)
 ---------------------------------
 for _,_params in pairs({nnetParams,nnetLocParamsConv,nnetLocParamsLin}) do
    for i,weights in ipairs(_params) do
       weights.W = weights.W:cuda()
       weights.b = weights.b:cuda()
-      weights.W:normal(0,0.1)
+      -- n = torch.numel(weights.b)
+      -- weights.W:uniform(-1/math.sqrt(n),1/math.sqrt(n))
+      weights.W:normal(0,0.01)
       weights.b:fill(0)
    end
 end
 
 -- Make sure that the net defaults to outputting identity transform
 local affineBias = nnetLocParamsLin[#nnetLocParamsLin].b:fill(0)
-affineBias[1] = 1
-affineBias[5] = 1
+affineBias[1] = 0 -- rotation
+affineBias[2] = 1 -- scale
+affineBias[3] = 0 -- translationX
+affineBias[4] = 0 -- translationy
 nnetLocParamsLin[#nnetLocParamsLin].W:fill(0)
 
 -- Define our loss function
@@ -87,7 +91,7 @@ local function f(inputs, bhwdImages, labels)
    local warpPrediction = nnetLocLin(inputs.nnetLocParamsLin, torch.view(convOut, batchSize, nOut))
 
    -- Get 2D affine matrices
-   local affineTransforms = torch.view(warpPrediction, batchSize, 2, 3)
+   local affineTransforms = matrixGenerator(warpPrediction) -- torch.view(warpPrediction, batchSize, 2, 3)
 
    -- Get warped grids
    local grids = gridGenerator(affineTransforms)
@@ -117,10 +121,12 @@ params = {
    nnetLocParamsConv=nnetLocParamsConv
 }
 
+print(params)
+
 -- Take the gradient of the function
 local g = grad(f, {optimize = true})
 
-local lr = 1e-2
+local lr = 1e-1
 local w1
 local nBatches = train:getNumBatches()
 for epoch=1,100 do
@@ -138,16 +144,18 @@ for epoch=1,100 do
 
       -- Update, making sure to scale update by batch size:
       for k=1,#params.nnetParams do
+         print(torch.max(grads.nnetParams[k].W))
          params.nnetParams[k].W = params.nnetParams[k].W - grads.nnetParams[k].W*lr/n
          params.nnetParams[k].b = params.nnetParams[k].b - grads.nnetParams[k].b*lr/n
       end
       for k=1,#params.nnetLocParamsConv do
-         params.nnetLocParamsConv[k].W = params.nnetLocParamsConv[k].W - grads.nnetLocParamsConv[k].W*lr/n/1e2
-         params.nnetLocParamsConv[k].b = params.nnetLocParamsConv[k].b - grads.nnetLocParamsConv[k].b*lr/n/1e2
+         print(torch.max(grads.nnetLocParamsConv[k].W))
+         params.nnetLocParamsConv[k].W = params.nnetLocParamsConv[k].W - grads.nnetLocParamsConv[k].W*lr/n
+         params.nnetLocParamsConv[k].b = params.nnetLocParamsConv[k].b - grads.nnetLocParamsConv[k].b*lr/n
       end
       for k=1,#params.nnetLocParamsLin do
-         params.nnetLocParamsLin[k].W = params.nnetLocParamsLin[k].W - grads.nnetLocParamsLin[k].W*lr/n/1e1
-         params.nnetLocParamsLin[k].b = params.nnetLocParamsLin[k].b - grads.nnetLocParamsLin[k].b*lr/n/1e1
+         params.nnetLocParamsLin[k].W = params.nnetLocParamsLin[k].W - grads.nnetLocParamsLin[k].W*lr/n
+         params.nnetLocParamsLin[k].b = params.nnetLocParamsLin[k].b - grads.nnetLocParamsLin[k].b*lr/n
       end
 
       -- Log performance:
