@@ -78,7 +78,7 @@ nnetLocParamsLin[#nnetLocParamsLin].W:fill(0)
 -- Define our loss function
 ---------------------------------
 local function f(inputs, bhwdImages, labels)
-   -- Flatten the input for the MLP
+   -- Reshape for convnet
    local input = torch.view(bhwdImages, 
                      batchSize, 1, imageHeight, imageWidth)
 
