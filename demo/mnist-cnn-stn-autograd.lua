@@ -77,7 +77,6 @@ affineBias[1] = 0 -- rotation
 affineBias[2] = 1 -- scale
 affineBias[3] = 0 -- translationX
 affineBias[4] = 0 -- translationy
-nnetLocParamsLin[#nnetLocParamsLin].W:fill(0)
 
 -- Define our loss function
 ---------------------------------
@@ -121,8 +120,6 @@ params = {
    nnetLocParamsConv=nnetLocParamsConv
 }
 
-print(params)
-
 -- Take the gradient of the function
 local g = grad(f, {optimize = true})
 
@@ -144,12 +141,10 @@ for epoch=1,100 do
 
       -- Update, making sure to scale update by batch size:
       for k=1,#params.nnetParams do
-         print(torch.max(grads.nnetParams[k].W))
          params.nnetParams[k].W = params.nnetParams[k].W - grads.nnetParams[k].W*lr/n
          params.nnetParams[k].b = params.nnetParams[k].b - grads.nnetParams[k].b*lr/n
       end
       for k=1,#params.nnetLocParamsConv do
-         print(torch.max(grads.nnetLocParamsConv[k].W))
          params.nnetLocParamsConv[k].W = params.nnetLocParamsConv[k].W - grads.nnetLocParamsConv[k].W*lr/n
          params.nnetLocParamsConv[k].b = params.nnetLocParamsConv[k].b - grads.nnetLocParamsConv[k].b*lr/n
       end
