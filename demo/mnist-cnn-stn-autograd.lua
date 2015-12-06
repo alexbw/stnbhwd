@@ -25,8 +25,6 @@ local gridWidth = imageWidth
 local matrixGenerator = fns.AffineTransformMatrixGenerator(true, true, true) -- rotation, scale, translation
 local gridGenerator = fns.AffineGridGeneratorBHWD(gridHeight, gridWidth) -- grid is same size as image
 local bilinearSampler = fns.BilinearSamplerBHWD()
--- local pooling = grad.functionalize('cudnn').SpatialMaxPooling(2,2,2,2)
--- print(pooling)
 
 -- Set up our models
 ---------------------------------
