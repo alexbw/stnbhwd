@@ -9,6 +9,7 @@ local optim = require 'optim'
 local stn = require 'stn'
 local hasQT,q = pcall(require, 'qt')
 
+torch.manualSeed(0)
 
 -- MNIST dataset 
 ---------------------------------
@@ -68,6 +69,8 @@ local agLocnet, locParams = grad.functionalize(locnet)
 local agClassnet, classParams = grad.functionalize(model)
 local criterion = grad.nn.ClassNLLCriterion()
 
+-- Set up parameters
+---------------------------------
 params = {
    locParams = locParams,
    classParams = classParams,
@@ -89,7 +92,7 @@ local function f(inputs, bhwdImages, labels)
    -- Resample the images
    local resampledImages = bilinearSampler({bhwdImages, grids})
 
-   -- Run the classifier on those input images
+   -- Run the classifier on the warped images
    local warpedInput = torch.view(resampledImages,
                      batchSize, 
                      gridHeight*gridWidth)
@@ -134,9 +137,9 @@ for epoch=1,100 do
          print(confusionMatrix)
          confusionMatrix:zero()
          local transformedImage = resampledImages:select(4,1)
-         -- local origImage = bhwdImages:select(4,1)
-         -- w1=image.display({image=origImage, nrow=16, legend='Original', win=w1})
          if hasQT then
+            local origImage = bhwdImages:select(4,1)
+            w1=image.display({image=origImage, nrow=16, legend='Original', win=w1})
             w2=image.display({image=transformedImage, nrow=16, legend='Resampled', win=w2})
          end
       end
