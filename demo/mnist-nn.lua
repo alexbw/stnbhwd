@@ -16,6 +16,8 @@ torch.manualSeed(0)
 local batchSize = 256
 local train, validation = paths.dofile("./distort_mnist.lua")(true, true, true, batchSize) -- batch, normalize, distort
 local imageHeight, imageWidth = train.data:size(3), train.data:size(4)
+local gridHeight = imageHeight
+local gridWidth = imageWidth
 
 -- Set up confusion matrix
 ---------------------------------
@@ -23,12 +25,8 @@ local confusionMatrix = optim.ConfusionMatrix({0,1,2,3,4,5,6,7,8,9})
 
 -- Get the STN functions
 ---------------------------------
-local fns = grad.functionalize('stn')
-local gridHeight = imageHeight
-local gridWidth = imageWidth
-local matrixGenerator = fns.AffineTransformMatrixGenerator(true, true, true) -- rotation, scale, translation
-local gridGenerator = fns.AffineGridGeneratorBHWD(gridHeight, gridWidth) -- grid is same size as image
-local bilinearSampler = fns.BilinearSamplerBHWD()
+local gridGenerator = grad.functionalize(stn.AffineGridGeneratorBHWD(gridHeight, gridWidth)) -- grid is same size as image
+local bilinearSampler = grad.functionalize(stn.BilinearSamplerBHWD())
 
 -- Set up the localizer network
 ---------------------------------
@@ -106,7 +104,7 @@ local function f(inputs, bhwdImages, labels)
    return loss, prediction, resampledImages
 end
 
-local g = grad(f, {optimize = false})
+local g = grad(f, {optimize = true})
 
 local state = {learningRate=1e-2}
 local optimfn, states = grad.optim.adagrad(g, state, params)
