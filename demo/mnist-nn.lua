@@ -30,7 +30,6 @@ local bilinearSampler = grad.functionalize(stn.BilinearSamplerBHWD())
 
 -- Set up the localizer network
 ---------------------------------
-local locnet = nn.Sequential()
 locnet:add(cudnn.SpatialMaxPooling(2,2,2,2))
 locnet:add(cudnn.SpatialConvolution(1,20,5,5))
 locnet:add(cudnn.ReLU(true))
