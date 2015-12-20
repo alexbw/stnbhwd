@@ -23,6 +23,7 @@ Options:
    --batchSize (default 256)
    --nEpoch (default 100)
 ]]
+
 if opt.distort == "true" then opt.distort = true else opt.distort = false end
 if opt.display == "true" then opt.display = true else opt.display = false end
 
@@ -54,7 +55,8 @@ if opt.model == "stn" then
    f, params = paths.dofile('stn-model.lua')(opt.batchSize, imageWidth, imageHeight)
 elseif opt.model == "mlp" then
    f, params = paths.dofile('mlp-model.lua')(opt.batchSize, imageWidth, imageHeight)
-else
+elseif opt.model == "cnn" then
+   f, params = paths.dofile('cnn-model.lua')(opt.batchSize, imageWidth, imageHeight)
    print("Unrecognized model " .. opt.model)
 end
 

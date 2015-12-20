@@ -7,24 +7,29 @@ local cudnn = require 'cudnn'
 local cutorch = require 'cutorch'
 local stn = require 'stn'
 
+
+
 return function (batchSize, imageHeight, imageWidth)
    imageHeight = imageHeight or 32
    imageWidth = imageWidth or 32
 
+
+
    -- Set up classifier network
    ---------------------------------
-   error("UNIMPLEMENTED")
+   -- TODO: parameterize based on image size
    model = nn.Sequential()
-   model:add(cudnn.SpatialMaxPooling(2,2,2,2))
    model:add(cudnn.SpatialConvolution(1,20,5,5))
    model:add(cudnn.ReLU(true))
    model:add(cudnn.SpatialMaxPooling(2,2,2,2))
    model:add(cudnn.SpatialConvolution(20,20,5,5))
    model:add(cudnn.ReLU(true))
-   model:add(nn.View(20*2*2))
-   model:add(nn.Linear(20*2*2,20))
+   model:add(cudnn.SpatialMaxPooling(2,2,2,2))
+   model:add(nn.View(20*5*5))
+   model:add(nn.Linear(20*5*5,100))
    model:add(cudnn.ReLU(true))
-   model:add(nn.Linear(20,10))
+   model:add(nn.Linear(100,10))
+   model:add(cudnn.LogSoftMax())
    model:cuda()
 
    -- Functionalize networks
@@ -41,12 +46,10 @@ return function (batchSize, imageHeight, imageWidth)
    -- Define our loss function
    ---------------------------------
    local function f(inputs, bhwdImages, labels)
-      -- Run the classifier on raw images
-      local images = torch.view(bhwdImages,
-                        batchSize, 
-                        imageHeight*imageWidth)
 
-      -- Predict image class on warped image
+      local images = torch.transpose(torch.transpose(bhwdImages,3,4),2,3)
+
+      -- Predict image class
       local prediction = agClassnet(inputs.classParams, images)
 
       -- Calculate loss

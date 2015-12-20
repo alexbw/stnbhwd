@@ -42,7 +42,7 @@ return function (batchSize, imageHeight, imageWidth)
                         batchSize, 
                         imageHeight*imageWidth)
 
-      -- Predict image class on warped image
+      -- Predict image class
       local prediction = agClassnet(inputs.classParams, images)
 
       -- Calculate loss
