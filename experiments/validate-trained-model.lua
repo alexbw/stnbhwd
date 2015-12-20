@@ -1,5 +1,7 @@
 -- Use rotation, translation and scaling for optimization
 
+-- REQUIRES NNFUNC-UPDATE BRANCH OF AUTOGRAD
+
 
 require 'trepl'
 local t = require 'torch'
@@ -13,6 +15,7 @@ local image = require 'image'
 local stn = require 'stn'
 local hasQT,q = pcall(require, 'qt')
 local pprint = require 'pprint'
+
 -- Options
 local opt = lapp [[
 Run benchmarks.
@@ -82,11 +85,11 @@ local confusionMatrix = optim.ConfusionMatrix({0,1,2,3,4,5,6,7,8,9})
 ---------------------------------
 local f
 if opt.model == "stn" then
-   -- Don't load params, we've already trained them
    f, _ = paths.dofile('stn-model.lua')(opt.validationBatchSize, imageWidth, imageHeight)
 elseif opt.model == "mlp" then
-   -- Don't load params, we've already trained them
    f, _ = paths.dofile('mlp-model.lua')(opt.validationBatchSize, imageWidth, imageHeight)
+elseif opt.model == "cnn" then
+   f, _ = paths.dofile('cnn-model.lua')(opt.validationBatchSize, imageWidth, imageHeight)
 else
    print("Unrecognized model " .. opt.model)
 end
@@ -133,15 +136,16 @@ local function warp(transformParams, params, bhwdImages, target)
    local affineMatrices = matrixGenerator(transformParams)
    local grids = gridGenerator(affineMatrices)
    local resampledImages = bilinearSampler({bhwdImages, grids})
+   print(torch.size(resampledImages))
    local loss, prediction = f(params, resampledImages, target)
    local entropy = torch.sum(-torch.sum(torch.cmul(prediction,torch.exp(prediction)),2))
-   return entropy, resampledImages, torch.exp(prediction)
+   return entropy, torch.exp(prediction), resampledImages
 end
 
-dwarp = grad(warp, {optimize=true})
-local state = {learningRate=1e-2, momentum=0.5}
--- local state = {learningRate=1e-2}
--- local state = {learningRate = 1e-2, beta1 = 0.9, beta2 = 0.9, epsilon = 1e-8}
+dwarp = grad(warp, {optimize=false})
+-- local state = {learningRate=5e-2}
+-- local state = {learningRate=5e-2, momentum=0.5}
+local state = {learningRate = 5e-2} -- , beta1 = 0.9, beta2 = 0.9, epsilon = 1e-8}
 
 -- Run the validation
 ---------------------------------
@@ -160,15 +164,10 @@ for i=1,nBatches do
       -- affineMatrices = setIdentity(affineMatrices)
       transformParams = setIdentityTransform(transformParams)
       -- local optimfn, states = grad.optim.adagrad(dwarp, state, transformParams)
-      local optimfn, states = grad.optim.sgd(dwarp, state, transformParams)
+      -- local optimfn, states = grad.optim.sgd(dwarp, state, transformParams)
+      local optimfn, states = grad.optim.adam(dwarp, state, transformParams)
       for _=1,opt.warpIter do
-         -- grads, loss, resampledImages, prediction = dwarp(affineMatrices, params, bhwdImages, target)
-         grads, entropy, resampledImages, prediction = optimfn(params, bhwdImages, target)
-         print("==============================")
-         print(entropy)
-         print(torch.select(prediction,1,1))
-         print(torch.select(transformParams,1,1))
-         print("==============================")
+         grads, entropy, prediction, resampledImages = optimfn(params, bhwdImages, target)
          local transformedImage = resampledImages:select(4,1)
          w2=image.display({image=transformedImage, nrow=16, legend='Resampled', win=w2})
       end
@@ -176,12 +175,6 @@ for i=1,nBatches do
 
    else
       loss, prediction, resampledImages = f(params, bhwdImages, target)
-      print("==============================")
-      print(target[1])
-      print(torch.select(torch.exp(prediction),1,1))
-      print("==============================")
-      os.exit()
-
    end
 
    -- Calculate loss and predictions:
@@ -194,7 +187,7 @@ for i=1,nBatches do
          local origImage = bhwdImages:select(4,1)
          -- w1=image.display({image=origImage, nrow=16, legend='Original', win=w1})
          -- w2=image.display({image=transformedImage, nrow=16, legend='Resampled', win=w2})
-         sys.sleep(1)
+         -- sys.sleep(1)
       end
    end
 end

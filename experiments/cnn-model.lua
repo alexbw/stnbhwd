@@ -18,7 +18,7 @@ return function (batchSize, imageHeight, imageWidth)
    -- Set up classifier network
    ---------------------------------
    -- TODO: parameterize based on image size
-   model = nn.Sequential()
+   local model = nn.Sequential()
    model:add(cudnn.SpatialConvolution(1,20,5,5))
    model:add(cudnn.ReLU(true))
    model:add(cudnn.SpatialMaxPooling(2,2,2,2))
@@ -39,7 +39,7 @@ return function (batchSize, imageHeight, imageWidth)
 
    -- Set up parameters
    ---------------------------------
-   params = {
+   local params = {
       classParams = classParams,
    }
 

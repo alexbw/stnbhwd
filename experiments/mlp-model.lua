@@ -13,7 +13,7 @@ return function (batchSize, imageHeight, imageWidth)
 
    -- Set up classifier network
    ---------------------------------
-   model = nn.Sequential()
+   local model = nn.Sequential()
    model:add(nn.View(imageHeight*imageWidth))
    model:add(nn.Linear(imageHeight*imageWidth, 128))
    model:add(cudnn.ReLU(true))
@@ -30,7 +30,7 @@ return function (batchSize, imageHeight, imageWidth)
 
    -- Set up parameters
    ---------------------------------
-   params = {
+   local params = {
       classParams = classParams,
    }
 
