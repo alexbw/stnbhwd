@@ -1,7 +1,7 @@
 -- Use rotation, translation and scaling for optimization
 
 -- REQUIRES NNFUNC-UPDATE BRANCH OF AUTOGRAD
-
+-- qlua validate-trained-model.lua --nEpoch=100  --model=cnn --distort=false  --display=true --distortValidation=true --validationBatchSize=256 --warp=true --warpIter=50
 
 require 'trepl'
 local t = require 'torch'
@@ -169,7 +169,9 @@ for i=1,nBatches do
       for _=1,opt.warpIter do
          grads, entropy, prediction, resampledImages = optimfn(params, bhwdImages, target)
          local transformedImage = resampledImages:select(4,1)
-         w2=image.display({image=transformedImage, nrow=16, legend='Resampled', win=w2})
+         if hasQT and opt.display then
+            w2=image.display({image=transformedImage, nrow=16, legend='Resampled', win=w2})
+         end
       end
       loss, prediction = f(params, resampledImages, target)
 
@@ -185,9 +187,6 @@ for i=1,nBatches do
       if hasQT and opt.display and resampledImages then
          local transformedImage = resampledImages:select(4,1)
          local origImage = bhwdImages:select(4,1)
-         -- w1=image.display({image=origImage, nrow=16, legend='Original', win=w1})
-         -- w2=image.display({image=transformedImage, nrow=16, legend='Resampled', win=w2})
-         -- sys.sleep(1)
       end
    end
 end
