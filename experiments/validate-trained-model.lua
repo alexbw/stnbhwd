@@ -1,7 +1,11 @@
 -- Use rotation, translation and scaling for optimization
 
 -- REQUIRES NNFUNC-UPDATE BRANCH OF AUTOGRAD
--- qlua validate-trained-model.lua --nEpoch=100  --model=cnn --distort=false  --display=true --distortValidation=true --validationBatchSize=256 --warp=true --warpIter=50
+
+-- This one does some zoomy stuff
+-- qlua validate-trained-model.lua --nEpoch=100  --optimizer=adam --model=cnn --distort=false  --display=true --distortValidation=true --validationBatchSize=256 --warp=true --warpIter=50
+
+
 
 require 'trepl'
 local t = require 'torch'
@@ -31,6 +35,7 @@ Options:
    --warp (default false)
    --warpIter (default 10)
    --validationBatchSize (default same)
+   --warpOptimizer (default adam)
 ]]
 
 if opt.distort == "true" then opt.distort = true else opt.distort = false end
@@ -44,7 +49,7 @@ elseif opt.distortValidation == "false" then
    opt.distortValidation = false
 else
    opt.validationBatchSize = opt.distort
-end   
+end
 if opt.validationBatchSize == "same" then 
    opt.validationBatchSize = opt.batchSize
 else
@@ -56,9 +61,9 @@ torch.manualSeed(0)
 
 -- Name of file to serialize once fitting is completed
 outFile = string.format("model=%s-distort=%s-optimizer=%s-nepoch=%d-batchSize=%d.t7", 
-   opt.model, 
-   tostring(opt.distort), 
-   opt.optimizer, 
+   opt.model,
+   tostring(opt.distort),
+   opt.optimizer,
    opt.nEpoch,
    opt.batchSize)
 
@@ -70,7 +75,7 @@ end
 local params = t.load(outFile).params -- don't load the function, lacks upvalues
 
 
--- MNIST dataset 
+-- MNIST dataset
 ---------------------------------
 local train, validation = paths.dofile("../demo/distort_mnist.lua")(true, true, opt.distortValidation, opt.validationBatchSize) -- batch, normalize, distort
 local imageHeight, imageWidth = train.data:size(3), train.data:size(4)
@@ -143,9 +148,19 @@ local function warp(transformParams, params, bhwdImages, target)
 end
 
 dwarp = grad(warp, {optimize=false})
--- local state = {learningRate=5e-2}
--- local state = {learningRate=5e-2, momentum=0.5}
-local state = {learningRate = 5e-2} -- , beta1 = 0.9, beta2 = 0.9, epsilon = 1e-8}
+local state, optimfn
+if opt.warpOptimizer == "adam" then
+   state = {learningRate = 5e-2} -- , beta1 = 0.9, beta2 = 0.9, epsilon = 1e-8}
+   optimfn = grad.optim.adam
+elseif opt.warpOptimizer == "adagrad" then
+   state = {learningRate=5e-2}
+   optimfn = grad.optim.adagrad
+elseif opt.warpOptimizer == "sgd" then
+   state = {learningRate=5e-3, momentum=0.5}
+   optimfn = grad.optim.sgd
+else
+   print("Invalid opt.warpOptimizer value. Only adam, adagrad and sgd are valid.")
+end
 
 -- Run the validation
 ---------------------------------
@@ -163,9 +178,7 @@ for i=1,nBatches do
    if opt.warp then
       -- affineMatrices = setIdentity(affineMatrices)
       transformParams = setIdentityTransform(transformParams)
-      -- local optimfn, states = grad.optim.adagrad(dwarp, state, transformParams)
-      -- local optimfn, states = grad.optim.sgd(dwarp, state, transformParams)
-      local optimfn, states = grad.optim.adam(dwarp, state, transformParams)
+      local optimfn, states = optimfn(dwarp, state, transformParams)
       for _=1,opt.warpIter do
          grads, entropy, prediction, resampledImages = optimfn(params, bhwdImages, target)
          local transformedImage = resampledImages:select(4,1)
