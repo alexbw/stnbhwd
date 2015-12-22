@@ -7,15 +7,16 @@ local cudnn = require 'cudnn'
 local cutorch = require 'cutorch'
 local stn = require 'stn'
 
-return function (batchSize, imageHeight, imageWidth)
+return function (batchSize, imageDepth, imageHeight, imageWidth)
+   imageDepth = imageDepth or 1
    imageHeight = imageHeight or 32
    imageWidth = imageWidth or 32
 
    -- Set up classifier network
    ---------------------------------
    local model = nn.Sequential()
-   model:add(nn.View(imageHeight*imageWidth))
-   model:add(nn.Linear(imageHeight*imageWidth, 128))
+   model:add(nn.View(imageDepth*imageHeight*imageWidth))
+   model:add(nn.Linear(imageDepth*imageHeight*imageWidth, 128))
    model:add(cudnn.ReLU(true))
    model:add(nn.Linear(128, 128))
    model:add(cudnn.ReLU(true))
@@ -39,7 +40,8 @@ return function (batchSize, imageHeight, imageWidth)
    local function f(inputs, bhwdImages, labels)
       -- Run the classifier on raw images
       local images = torch.view(bhwdImages,
-                        batchSize, 
+                        batchSize,
+                        imageDepth,
                         imageHeight*imageWidth)
 
       -- Predict image class

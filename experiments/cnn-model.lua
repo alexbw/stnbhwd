@@ -7,7 +7,8 @@ local cudnn = require 'cudnn'
 local cutorch = require 'cutorch'
 local stn = require 'stn'
 
-return function (batchSize, imageHeight, imageWidth)
+return function (batchSize, imageDepth, imageHeight, imageWidth)
+   imageDepth =  imageDepth or 1
    imageHeight = imageHeight or 32
    imageWidth = imageWidth or 32
 
@@ -15,7 +16,7 @@ return function (batchSize, imageHeight, imageWidth)
    ---------------------------------
    -- TODO: parameterize based on image size
    local model = nn.Sequential()
-   model:add(cudnn.SpatialConvolution(1,20,5,5))
+   model:add(cudnn.SpatialConvolution(imageDepth,20,5,5))
    model:add(cudnn.ReLU(true))
    model:add(cudnn.SpatialMaxPooling(2,2,2,2))
    model:add(cudnn.SpatialConvolution(20,20,5,5))
@@ -43,7 +44,7 @@ return function (batchSize, imageHeight, imageWidth)
    ---------------------------------
    local function f(inputs, bhwdImages, labels)
 
-      local images = torch.transpose(torch.transpose(bhwdImages,3,4),2,3)
+      local images = torch.contiguous(torch.transpose(torch.transpose(bhwdImages,3,4),2,3))
 
       -- Predict image class
       local prediction = agClassnet(inputs.classParams, images)

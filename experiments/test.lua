@@ -1,9 +1,9 @@
-image = require 'image'
+local testFileName = 'mnist.t7/test_32x32-blur.t7'
+local trainFileName = 'mnist.t7/train_32x32-blur.t7'
 
-local sigma = 10
-local k = sigma*3
-I = image.lena()[1]
-h,w = I:size(1),I:size(2)
-g = image.gaussian(k,k,sigma,sigma)
-local o = torch.conv2(I,g,'F'):narrow(1,k-1,h):narrow(2,k-1,w)
-image.display(o)
+local train = torch.load(trainFileName, 'ascii')
+local test = torch.load(testFileName, 'ascii')
+train.data = train.data:float()
+train.labels = train.labels:float()
+test.data = test.data:float()
+test.labels = test.labels:float()

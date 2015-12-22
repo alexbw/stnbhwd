@@ -17,6 +17,7 @@ Run benchmarks.
 
 Options:
    --distort (default false)
+   --blur (default false)
    --model (default stn)
    --optimizer (default adagrad)
    --display (default false)
@@ -25,23 +26,24 @@ Options:
 ]]
 
 if opt.distort == "true" then opt.distort = true else opt.distort = false end
+if opt.blur == "true" then opt.blur = true else opt.blur = false end
 if opt.display == "true" then opt.display = true else opt.display = false end
 
 torch.manualSeed(0)
 
 -- Name of file to serialize once fitting is completed
-outFile = string.format("model=%s-distort=%s-optimizer=%s-nepoch=%d-batchSize=%d.t7", 
-   opt.model, 
-   tostring(opt.distort), 
-   opt.optimizer, 
+outFile = string.format("model=%s-distort=%s-optimizer=%s-nepoch=%d-batchSize=%d.t7",
+   opt.model,
+   tostring(opt.distort),
+   opt.optimizer,
    opt.nEpoch,
    opt.batchSize)
 
 
--- MNIST dataset 
+-- MNIST dataset
 ---------------------------------
-local train, validation = paths.dofile("../demo/distort_mnist.lua")(true, true, opt.distort, opt.batchSize) -- batch, normalize, distort
-local imageHeight, imageWidth = train.data:size(3), train.data:size(4)
+local train, validation = paths.dofile("../demo/distort_mnist.lua")(true, true, opt.distort, opt.blur, opt.batchSize) -- batch, normalize, distort, blur, batchSize
+local imageDepth, imageHeight, imageWidth = train.data:size(2), train.data:size(3), train.data:size(4)
 local gridHeight = imageHeight
 local gridWidth = imageWidth
 
@@ -52,20 +54,21 @@ local confusionMatrix = optim.ConfusionMatrix({0,1,2,3,4,5,6,7,8,9})
 -- Initialize the model
 ---------------------------------
 if opt.model == "stn" then
-   f, params = paths.dofile('stn-model.lua')(opt.batchSize, imageWidth, imageHeight)
+   f, params = paths.dofile('stn-model.lua')(opt.batchSize, imageDepth, imageWidth, imageHeight)
 elseif opt.model == "mlp" then
-   f, params = paths.dofile('mlp-model.lua')(opt.batchSize, imageWidth, imageHeight)
+   f, params = paths.dofile('mlp-model.lua')(opt.batchSize, imageDepth, imageWidth, imageHeight)
 elseif opt.model == "cnn" then
-   f, params = paths.dofile('cnn-model.lua')(opt.batchSize, imageWidth, imageHeight)
+   f, params = paths.dofile('cnn-model.lua')(opt.batchSize, imageDepth, imageWidth, imageHeight)
+else
    print("Unrecognized model " .. opt.model)
 end
 
 -- Get the gradient of the model
---------------------------------- 
+---------------------------------
 local g = grad(f, {optimize = true})
 
 -- Set up the optimizer
---------------------------------- 
+---------------------------------
 local state, states, optimfn
 if opt.optimizer == "adagrad" then
    state = {learningRate=1e-2}
@@ -87,7 +90,7 @@ for epoch=1,opt.nEpoch do
 
       -- Get images in BHWD format, labels in one-hot format:
       local data, labels, n = train:getBatch(i)
-      local bhwdImages = data:transpose(2,3):cuda():transpose(3,4):cuda()
+      local bhwdImages = data:transpose(2,3):cuda():transpose(3,4):contiguous():cuda()
       local target = labels:cuda()
 
       -- Calculate gradients:

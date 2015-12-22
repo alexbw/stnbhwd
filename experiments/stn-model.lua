@@ -7,13 +7,13 @@ local cudnn = require 'cudnn'
 local cutorch = require 'cutorch'
 local stn = require 'stn'
 
-return function (batchSize, imageHeight, imageWidth)
+return function (batchSize, imageDepth, imageHeight, imageWidth)
 
    -- Set up the localizer network
    ---------------------------------
    local locnet = nn.Sequential()
    locnet:add(cudnn.SpatialMaxPooling(2,2,2,2))
-   locnet:add(cudnn.SpatialConvolution(1,20,5,5))
+   locnet:add(cudnn.SpatialConvolution(imageDepth,20,5,5))
    locnet:add(cudnn.ReLU(true))
    locnet:add(cudnn.SpatialMaxPooling(2,2,2,2))
    locnet:add(cudnn.SpatialConvolution(20,20,5,5))
@@ -33,8 +33,8 @@ return function (batchSize, imageHeight, imageWidth)
    -- Set up classifier network
    ---------------------------------
    model = nn.Sequential()
-   model:add(nn.View(imageHeight*imageWidth))
-   model:add(nn.Linear(imageHeight*imageWidth, 128))
+   model:add(nn.View(imageDepth*imageHeight*imageWidth))
+   model:add(nn.Linear(imageDepth*imageHeight*imageWidth, 128))
    model:add(cudnn.ReLU(true))
    model:add(nn.Linear(128, 128))
    model:add(cudnn.ReLU(true))
@@ -65,11 +65,11 @@ return function (batchSize, imageHeight, imageWidth)
    local function f(inputs, bhwdImages, labels)
 
       -- Reshape the image for the convnet
-      local input = torch.view(bhwdImages, 
-                        batchSize, 1, imageHeight, imageWidth)
+      local input = torch.view(bhwdImages,
+                        batchSize, imageDepth, imageHeight, imageWidth)
 
       -- Calculate how we should warp the image
-      local warpPrediction = agLocnet(inputs.locParams, input)
+      local warpPrediction = agLocnet(inputs.locParams, torch.contiguous(input))
 
       -- Get warped grids
       local grids = gridGenerator(torch.view(warpPrediction, batchSize, 2, 3))
@@ -79,8 +79,8 @@ return function (batchSize, imageHeight, imageWidth)
 
       -- Run the classifier on the warped images
       local warpedInput = torch.view(resampledImages,
-                        batchSize, 
-                        imageHeight*imageWidth)
+                        batchSize,
+                        imageDepth*imageHeight*imageWidth)
 
       -- Predict image class on warped image
       local prediction = agClassnet(inputs.classParams, warpedInput)
