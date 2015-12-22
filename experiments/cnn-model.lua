@@ -7,13 +7,9 @@ local cudnn = require 'cudnn'
 local cutorch = require 'cutorch'
 local stn = require 'stn'
 
-
-
 return function (batchSize, imageHeight, imageWidth)
    imageHeight = imageHeight or 32
    imageWidth = imageWidth or 32
-
-
 
    -- Set up classifier network
    ---------------------------------
